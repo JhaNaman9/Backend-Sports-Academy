@@ -1,0 +1,1056 @@
+openapi: 3.0.0
+info:
+  title: Sports Academy Management API
+  description: API for managing sports academy operations, including students, coaches, subscriptions, and tournaments
+  version: 1.0.0
+  contact:
+    email: info@sportsacademy.com
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Development Server
+  - url: https://api.sportsacademy.com/api/v1
+    description: Production Server
+
+tags:
+  - name: Auth
+    description: Authentication operations
+  - name: Users
+    description: User management
+  - name: Students
+    description: Student profile management
+  - name: Coaches
+    description: Coach profile management
+  - name: Subscriptions
+    description: Subscription plans and active subscriptions
+  - name: Content
+    description: Content management for the academy
+  - name: Tournaments
+    description: Tournament management
+  - name: Reports
+    description: Reporting and analytics
+  - name: AI Assistant
+    description: Sports AI Assistant for queries
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: User ID
+        name:
+          type: string
+          description: User's full name
+        email:
+          type: string
+          description: User's email address
+        role:
+          type: string
+          enum: [admin, coach, student, user]
+          description: User's role
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation date
+      required:
+        - name
+        - email
+        - password
+        - role
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          description: User's email address
+        password:
+          type: string
+          description: User's password
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        token:
+          type: string
+          description: JWT Token
+        data:
+      type: object
+      properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+
+paths:
+  # Auth Routes
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: User's full name
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                  description: Password must have at least 6 characters
+                passwordConfirm:
+                  type: string
+                  format: password
+                  description: Must match password exactly (optional)
+                role:
+                  type: string
+                  enum: [coach, student]
+                  default: student
+                  description: User's role in the system (note: admin role is not available through API)
+                userType:
+                  type: string
+                  enum: [coach, student]
+                  default: student
+                  description: Alternative field for role, used by mobile app
+                phone:
+                  type: string
+                  description: User's phone number
+                contactNumber:
+                  type: string
+                  description: Alternative field for phone, used by mobile app
+                age:
+                  type: integer
+                  minimum: 5
+                  maximum: 100
+                  description: User's age (for student profiles)
+                gender:
+                  type: string
+                  enum: [male, female, other, prefer not to say]
+                  description: User's gender (for student profiles)
+                sportsCategories:
+                  type: array
+                  description: IDs of sports categories the student is interested in
+                  items:
+                    type: string
+                sportPreferences:
+                  type: array
+                  description: Alternative field for sportsCategories, used for student profiles
+                  items:
+                    type: string
+              required:
+                - name
+                - email
+                - password
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: User registered successfully
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      accessToken:
+                        type: string
+                        description: JWT access token
+                      refreshToken:
+                        type: string
+                        description: JWT refresh token
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Validation error
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        '403':
+          description: Admin creation forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Admin accounts cannot be created through the API
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Login successful
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Invalid email or password
+  
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Logged out successfully
+
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+
+  # User Routes
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Get all users (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of users to return
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      responses:
+        '200':
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                        type: integer
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+  
+  /users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get a single user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+    
+    patch:
+      tags:
+        - Users
+      summary: Update a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [admin, coach, student, user]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+  
+  # Student Routes  
+  /students:
+    get:
+      tags:
+        - Students
+      summary: Get all students
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of students
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      students:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You do not have permission to perform this action
+
+    post:
+      tags:
+        - Students
+      summary: Create a student profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                  description: User ID
+                sport:
+                  type: string
+                  description: Sport ID
+                age:
+                  type: integer
+                  description: Student age
+                emergencyContact:
+                  type: string
+                  description: Emergency contact information
+                medicalInformation:
+                  type: string
+                  description: Medical information
+      responses:
+        '201':
+          description: Student profile created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      student:
+                        type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+        schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+          type: string
+                    example: You are not logged in! Please log in to get access.
+  
+  # Coach Routes
+  /coaches:
+    get:
+      tags:
+        - Coaches
+      summary: Get all coaches
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of coaches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      coaches:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+    
+    post:
+      tags:
+        - Coaches
+      summary: Create a coach profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                  description: User ID
+                sportsCategory:
+                  type: string
+                  description: Sport ID
+                certifications:
+                  type: array
+                  items:
+                    type: string
+                experience:
+                  type: integer
+                  description: Years of experience
+                specialization:
+                  type: string
+                  description: Area of specialization
+      responses:
+        '201':
+          description: Coach profile created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      coach:
+                        type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+  
+  # Tournament Routes
+  /tournaments:
+    get:
+      tags:
+        - Tournaments
+      summary: Get all tournaments
+      responses:
+        '200':
+          description: A list of tournaments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      tournaments:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Tournaments
+      summary: Create a tournament
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Tournament name
+                sport:
+                  type: string
+                  description: Sport ID
+                description:
+                  type: string
+                  description: Tournament description
+                startDate:
+                  type: string
+                  format: date-time
+                  description: Tournament start date
+                endDate:
+                  type: string
+                  format: date-time
+                  description: Tournament end date
+                registrationEndDate:
+                  type: string
+                  format: date-time
+                  description: Registration deadline
+                maxParticipants:
+                  type: integer
+                  description: Maximum number of participants
+                location:
+                  type: string
+                  description: Tournament location
+      responses:
+        '201':
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      tournament:
+                        type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+  
+  # Content Routes
+  /content/announcements:
+    get:
+      tags:
+        - Content
+      summary: Get all announcements
+      responses:
+        '200':
+          description: A list of announcements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      announcements:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Content
+      summary: Create an announcement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Announcement title
+                content:
+                  type: string
+                  description: Announcement content
+                isActive:
+                  type: boolean
+                  description: Is the announcement active
+                image:
+                  type: string
+                  format: binary
+                  description: Announcement image
+      responses:
+        '201':
+          description: Announcement created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      announcement:
+                        type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+  
+  # Subscription Routes
+  /subscriptions/plans:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get all subscription plans
+      responses:
+        '200':
+          description: A list of subscription plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      plans:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Subscriptions
+      summary: Create a subscription plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Plan name
+                description:
+                  type: string
+                  description: Plan description
+                price:
+                  type: number
+                  description: Plan price
+                duration:
+                  type: integer
+                  description: Duration value
+                durationType:
+                  type: string
+                  enum: [days, months, years]
+                  description: Duration type
+                features:
+                  type: array
+                  items:
+                    type: string
+                  description: Plan features
+                isActive:
+                  type: boolean
+                  description: Is the plan active
+      responses:
+        '201':
+          description: Subscription plan created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      plan:
+                        type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+  
+  # Reports Routes
+  /reports/dashboard/summary:
+    get:
+      tags:
+        - Reports
+      summary: Get dashboard summary data
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard summary data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      totalStudents:
+                        type: integer
+                      totalCoaches:
+                        type: integer
+                      activeSubscriptions:
+                        type: integer
+                      upcomingTournaments:
+                        type: integer
+                      newStudents:
+                        type: integer
+                      totalRevenue:
+                        type: number
+                      popularSports:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You do not have permission to perform this action
+  
+  # AI Assistant Routes
+  /ai/query:
+    post:
+      tags:
+        - AI Assistant
+      summary: Query the sports AI assistant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: The sports-related question to ask
+                  example: What are the rules of cricket?
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      query:
+                        type: string
+                      response:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: You are not logged in! Please log in to get access.

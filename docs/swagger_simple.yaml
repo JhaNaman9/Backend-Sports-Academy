@@ -1,0 +1,917 @@
+openapi: 3.0.0
+info:
+  title: Sports Academy Management API
+  description: API for managing sports academy operations
+  version: 1.0.0
+  contact:
+    email: info@sportsacademy.com
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Development Server
+
+tags:
+  - name: Auth
+    description: Authentication operations
+  - name: Users
+    description: User management operations
+  - name: Students
+    description: Student management operations
+  - name: Coaches
+    description: Coach management operations
+  - name: Tournaments
+    description: Tournament management operations
+  - name: Sport Categories
+    description: Sport category management
+  - name: Subscriptions
+    description: Subscription management
+  - name: Content
+    description: Content management
+  - name: Reports
+    description: Reports and analytics
+  - name: AI Assistant
+    description: AI assistant operations
+  - name: Diet Plans
+    description: Diet plan management
+  - name: Activities
+    description: Activity management
+  - name: Notifications
+    description: Notification management
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, coach, student]
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  # Auth Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: User's full name
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+                passwordConfirm:
+                  type: string
+                  format: password
+                  description: Password confirmation
+                role:
+                  type: string
+                  enum: [coach, student]
+                  default: student
+                userType:
+                  type: string
+                  enum: [coach, student]
+                  default: student
+                phone:
+                  type: string
+                contactNumber:
+                  type: string
+                age:
+                  type: integer
+                  minimum: 5
+                  maximum: 100
+                gender:
+                  type: string
+                  enum: [male, female, other, prefer not to say]
+                sportsCategories:
+                  type: array
+                  items:
+                    type: string
+                  description: >
+                    Array of sport categories. Can be either:
+                    1) Array of MongoDB ObjectIds (24 char hex) of existing sport categories
+                    2) Array of sport category names (will be created if they don't exist)
+                    3) Comma-separated string of names or IDs
+                    Example: ["cricket", "football"] or "cricket,football"
+              required:
+                - name
+                - email
+                - password
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+
+  /auth/refresh-token:
+    post:
+      tags:
+        - Auth
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
+      responses:
+        '200':
+          description: Token refreshed successfully
+
+  /auth/forgot-password:
+    post:
+      tags:
+        - Auth
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+      responses:
+        '200':
+          description: Password reset token sent successfully
+
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                passwordConfirm:
+                  type: string
+                  format: password
+              required:
+                - token
+                - password
+                - passwordConfirm
+      responses:
+        '200':
+          description: Password reset successfully
+
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+
+  /auth/update-password:
+    patch:
+      tags:
+        - Auth
+      summary: Update password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                newPasswordConfirm:
+                  type: string
+                  format: password
+              required:
+                - currentPassword
+                - newPassword
+                - newPasswordConfirm
+      responses:
+        '200':
+          description: Password updated successfully
+
+  # Sport Categories Endpoints
+  /sport-categories:
+    get:
+      tags:
+        - Sport Categories
+      summary: Get all sport categories (public)
+      responses:
+        '200':
+          description: A list of sport categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+    post:
+      tags:
+        - Sport Categories
+      summary: Create a new sport category (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the sport category
+                description:
+                  type: string
+                  description: Description of the sport category
+              required:
+                - name
+      responses:
+        '201':
+          description: Sport category created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+  /sport-categories/{id}:
+    get:
+      tags:
+        - Sport Categories
+      summary: Get a specific sport category
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Sport category ID
+      responses:
+        '200':
+          description: Sport category details
+
+    patch:
+      tags:
+        - Sport Categories
+      summary: Update a sport category (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Sport category ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Sport category updated successfully
+
+    delete:
+      tags:
+        - Sport Categories
+      summary: Delete a sport category (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Sport category ID
+      responses:
+        '204':
+          description: Sport category deleted successfully
+
+  # Students Endpoints
+  /students:
+    get:
+      tags:
+        - Students
+      summary: Get all students (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of all students
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+    post:
+      tags:
+        - Students
+      summary: Create a new student profile (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                  description: User ID
+                sportPreferences:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of sport category IDs
+                dateOfBirth:
+                  type: string
+                  format: date
+                  description: Student's date of birth
+                gender:
+                  type: string
+                  enum: [male, female, other, prefer not to say]
+                  description: Student's gender
+              required:
+                - user
+      responses:
+        '201':
+          description: Student profile created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+  /students/{id}:
+    get:
+      tags:
+        - Students
+      summary: Get a specific student profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '200':
+          description: Student profile details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+    patch:
+      tags:
+        - Students
+      summary: Update student profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '200':
+          description: Student profile updated
+
+    delete:
+      tags:
+        - Students
+      summary: Delete student profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '204':
+          description: Student profile deleted
+
+  # Coaches Endpoints
+  /coaches:
+    get:
+      tags:
+        - Coaches
+      summary: Get all coaches
+      responses:
+        '200':
+          description: A list of all coaches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+    post:
+      tags:
+        - Coaches
+      summary: Create a new coach profile (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Coach profile created
+
+  /coaches/{id}:
+    get:
+      tags:
+        - Coaches
+      summary: Get a specific coach profile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Coach ID
+      responses:
+        '200':
+          description: Coach profile details
+
+    patch:
+      tags:
+        - Coaches
+      summary: Update coach profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Coach ID
+      responses:
+        '200':
+          description: Coach profile updated
+
+    delete:
+      tags:
+        - Coaches
+      summary: Delete coach profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Coach ID
+      responses:
+        '204':
+          description: Coach profile deleted
+
+  # Tournament Endpoints
+  /tournaments:
+    get:
+      tags:
+        - Tournaments
+      summary: Get all tournaments
+      responses:
+        '200':
+          description: A list of all tournaments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+    post:
+      tags:
+        - Tournaments
+      summary: Create a new tournament (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Tournament name
+                description:
+                  type: string
+                  description: Tournament description
+                sportCategory:
+                  type: string
+                  description: Sport category ID
+                startDate:
+                  type: string
+                  format: date-time
+                  description: Tournament start date
+                endDate:
+                  type: string
+                  format: date-time
+                  description: Tournament end date
+                registrationDeadline:
+                  type: string
+                  format: date-time
+                  description: Registration deadline
+                location:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Location name
+                tournamentImage:
+                  type: string
+                  format: binary
+                  description: Tournament image
+              required:
+                - name
+                - sportCategory
+                - startDate
+                - endDate
+                - registrationDeadline
+      responses:
+        '201':
+          description: Tournament created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+  /tournaments/{id}:
+    get:
+      tags:
+        - Tournaments
+      summary: Get a specific tournament
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+      responses:
+        '200':
+          description: Tournament details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+    patch:
+      tags:
+        - Tournaments
+      summary: Update tournament details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+      responses:
+        '200':
+          description: Tournament updated
+
+    delete:
+      tags:
+        - Tournaments
+      summary: Delete tournament
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+      responses:
+        '204':
+          description: Tournament deleted
+
+  /tournaments/{id}/participants:
+    get:
+      tags:
+        - Tournaments
+      summary: Get tournament participants
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+      responses:
+        '200':
+          description: List of tournament participants
+
+  /tournaments/{id}/participants/{studentId}:
+    post:
+      tags:
+        - Tournaments
+      summary: Add student to tournament
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+        - in: path
+          name: studentId
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '200':
+          description: Student added to tournament
+
+    delete:
+      tags:
+        - Tournaments
+      summary: Remove student from tournament
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Tournament ID
+        - in: path
+          name: studentId
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '200':
+          description: Student removed from tournament
+
+  # Diet Plans Endpoints
+  /diet-plans:
+    get:
+      tags:
+        - Diet Plans
+      summary: Get all diet plans
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of diet plans
+
+    post:
+      tags:
+        - Diet Plans
+      summary: Create a new diet plan
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Diet plan created
+
+  # Activities Endpoints
+  /activities:
+    get:
+      tags:
+        - Activities
+      summary: Get all activities
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of activities
+
+    post:
+      tags:
+        - Activities
+      summary: Create a new activity
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Activity created
+
+  # Notifications Endpoints
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of notifications
+
+  /notifications/mark-all-read:
+    patch:
+      tags:
+        - Notifications
+      summary: Mark all notifications as read
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+
+  /notifications/unread-count:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread notification count
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Unread notification count
+
+  # System Endpoints
+  /health:
+    get:
+      tags:
+        - System
+      summary: API health check
+      responses:
+        '200':
+          description: API status 

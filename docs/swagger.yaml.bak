@@ -1,0 +1,1013 @@
+openapi: 3.0.0
+info:
+  title: Sports Academy Management API
+  description: API for managing sports academy operations, including students, coaches, subscriptions, and tournaments
+  version: 1.0.0
+  contact:
+    email: info@sportsacademy.com
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Development Server
+  - url: https://api.sportsacademy.com/api/v1
+    description: Production Server
+
+tags:
+  - name: Auth
+    description: Authentication operations
+  - name: Users
+    description: User management
+  - name: Students
+    description: Student profile management
+  - name: Coaches
+    description: Coach profile management
+  - name: Subscriptions
+    description: Subscription plans and active subscriptions
+  - name: Content
+    description: Content management for the academy
+  - name: Tournaments
+    description: Tournament management
+  - name: Reports
+    description: Reporting and analytics
+  - name: AI Assistant
+    description: Sports AI Assistant for queries
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: User ID
+        name:
+          type: string
+          description: User's full name
+        email:
+          type: string
+          description: User's email address
+        role:
+          type: string
+          enum: [admin, coach, student, user]
+          description: User's role
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation date
+      required:
+        - name
+        - email
+        - password
+        - role
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          description: User's email address
+        password:
+          type: string
+          description: User's password
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        token:
+          type: string
+          description: JWT Token
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          example: fail
+        message:
+          type: string
+          description: Error message
+
+paths:
+  # Auth Routes
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                passwordConfirm:
+                  type: string
+                  format: password
+                  description: Must match password field exactly
+                role:
+                  type: string
+                  enum: [admin, coach, student, user]
+                  default: user
+              required:
+                - name
+                - email
+                - password
+                - passwordConfirm
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Logged out successfully
+  
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+
+  # User Routes
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Get all users (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of users to return
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      responses:
+        '200':
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get a single user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    patch:
+      tags:
+        - Users
+      summary: Update a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                role:
+                  type: string
+                  enum: [admin, coach, student, user]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+    
+    delete:
+      tags:
+        - Users
+      summary: Delete a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '204':
+          description: User deleted, no content
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Student Routes
+  /students:
+    get:
+      tags:
+        - Students
+      summary: Get all students
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of students to return
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      responses:
+        '200':
+          description: A list of students
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      students:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Students
+      summary: Create a student profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                  description: User ID
+                sport:
+                  type: string
+                  description: Sport ID
+                age:
+                  type: integer
+                  description: Student age
+                emergencyContact:
+                  type: string
+                  description: Emergency contact information
+                medicalInformation:
+                  type: string
+                  description: Medical information
+      responses:
+        '201':
+          description: Student profile created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      student:
+                        type: object
+
+  /students/{id}:
+    get:
+      tags:
+        - Students
+      summary: Get a single student
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '200':
+          description: Student found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      student:
+                        type: object
+    
+    patch:
+      tags:
+        - Students
+      summary: Update a student
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sport:
+                  type: string
+                age:
+                  type: integer
+                emergencyContact:
+                  type: string
+                medicalInformation:
+                  type: string
+      responses:
+        '200':
+          description: Student updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      student:
+                        type: object
+
+  /students/{id}/subscriptions:
+    get:
+      tags:
+        - Students
+      summary: Get student subscriptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      responses:
+        '200':
+          description: Student subscriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      subscriptions:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Students
+      summary: Create a subscription for a student
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Student ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  description: Subscription Plan ID
+                sport:
+                  type: string
+                  description: Sport ID
+                startDate:
+                  type: string
+                  format: date-time
+                  description: Subscription start date
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      subscription:
+                        type: object
+
+  # Coach Routes
+  /coaches:
+    get:
+      tags:
+        - Coaches
+      summary: Get all coaches
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of coaches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      coaches:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Coaches
+      summary: Create a coach profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                  description: User ID
+                sportsCategory:
+                  type: string
+                  description: Sport ID
+                certifications:
+                  type: array
+                  items:
+                    type: string
+                experience:
+                  type: integer
+                  description: Years of experience
+                specialization:
+                  type: string
+                  description: Area of specialization
+      responses:
+        '201':
+          description: Coach profile created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      coach:
+                        type: object
+
+  # Tournament Routes
+  /tournaments:
+    get:
+      tags:
+        - Tournaments
+      summary: Get all tournaments
+      responses:
+        '200':
+          description: A list of tournaments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      tournaments:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Tournaments
+      summary: Create a tournament
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Tournament name
+                sport:
+                  type: string
+                  description: Sport ID
+                description:
+                  type: string
+                  description: Tournament description
+                startDate:
+                  type: string
+                  format: date-time
+                  description: Tournament start date
+                endDate:
+                  type: string
+                  format: date-time
+                  description: Tournament end date
+                registrationEndDate:
+                  type: string
+                  format: date-time
+                  description: Registration deadline
+                maxParticipants:
+                  type: integer
+                  description: Maximum number of participants
+                location:
+                  type: string
+                  description: Tournament location
+      responses:
+        '201':
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      tournament:
+                        type: object
+
+  # Content Routes
+  /content/announcements:
+    get:
+      tags:
+        - Content
+      summary: Get all announcements
+      responses:
+        '200':
+          description: A list of announcements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      announcements:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Content
+      summary: Create an announcement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Announcement title
+                content:
+                  type: string
+                  description: Announcement content
+                isActive:
+                  type: boolean
+                  description: Is the announcement active
+                image:
+                  type: string
+                  format: binary
+                  description: Announcement image
+      responses:
+        '201':
+          description: Announcement created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      announcement:
+                        type: object
+
+  # Subscription Routes
+  /subscriptions/plans:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get all subscription plans
+      responses:
+        '200':
+          description: A list of subscription plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      plans:
+                        type: array
+                        items:
+                          type: object
+    
+    post:
+      tags:
+        - Subscriptions
+      summary: Create a subscription plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Plan name
+                description:
+                  type: string
+                  description: Plan description
+                price:
+                  type: number
+                  description: Plan price
+                duration:
+                  type: integer
+                  description: Duration value
+                durationType:
+                  type: string
+                  enum: [days, months, years]
+                  description: Duration type
+                features:
+                  type: array
+                  items:
+                    type: string
+                  description: Plan features
+                isActive:
+                  type: boolean
+                  description: Is the plan active
+      responses:
+        '201':
+          description: Subscription plan created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      plan:
+                        type: object
+
+  # Reports Routes
+  /reports/dashboard/summary:
+    get:
+      tags:
+        - Reports
+      summary: Get dashboard summary data
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard summary data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      totalStudents:
+                        type: integer
+                      totalCoaches:
+                        type: integer
+                      activeSubscriptions:
+                        type: integer
+                      upcomingTournaments:
+                        type: integer
+                      newStudents:
+                        type: integer
+                      totalRevenue:
+                        type: number
+                      popularSports:
+                        type: array
+                        items:
+                          type: object
+
+  # AI Assistant Routes
+  /ai/query:
+    post:
+      tags:
+        - AI Assistant
+      summary: Query the sports AI assistant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: The sports-related question to ask
+                  example: What are the rules of cricket?
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      query:
+                        type: string
+                      response:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+
+security:
+  - bearerAuth: [] 
